@@ -3,12 +3,11 @@
 # client that exposes a uniform interface regardless of provider.
 
 import json
-import os
 from types import SimpleNamespace
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 
 class UnifiedClient:
@@ -156,15 +155,13 @@ def create_client(provider: str, model: str, base_url: str = None):
 def _create_anthropic_client(model: str, base_url: str = None):
     from anthropic import Anthropic
 
-    url = base_url or os.getenv("ANTHROPIC_BASE_URL")
-    raw = Anthropic(base_url=url)
+    raw = Anthropic(base_url=base_url) if base_url else Anthropic()
     return UnifiedClient("anthropic", raw), model
 
 
 def _create_openai_client(model: str, base_url: str = None):
     from openai import OpenAI
 
-    # CLI --base-url overrides the OPENAI_BASE_URL env var
     raw = OpenAI(base_url=base_url) if base_url else OpenAI()
     return UnifiedClient("openai", raw), model
 

@@ -47,8 +47,14 @@ def handler(client, model: str, prompt: str, logger=None) -> str:
         results = []
         for block in response.content:
             if block.type == "tool_use":
-                tool_handler = TOOL_HANDLERS.get(block.name)
-                output = tool_handler(**block.input) if tool_handler else f"Unknown tool: {block.name}"
+                try:
+                    tool_handler = TOOL_HANDLERS.get(block.name)
+                    if not tool_handler:
+                        output = f"Error: Unknown tool '{block.name}'"
+                    else:
+                        output = tool_handler(**block.input)
+                except Exception as e:
+                    output = f"Error: {type(e).__name__}: {e}"
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)[:50000]})
         sub_messages.append({"role": "user", "content": results})
 

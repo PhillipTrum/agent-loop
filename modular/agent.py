@@ -28,15 +28,21 @@ def agent_loop(client, model: str, messages: list, logger=None):
         results = []
         for block in response.content:
             if block.type == "tool_use":
-                # The subagent tool spawns a subagent; everything else runs directly
-                if block.name == "subagent":
-                    desc = block.input.get("description", "subtask")
-                    prompt = block.input.get("prompt", "")
-                    print(f"> subagent ({desc}): {prompt[:80]}")
-                    output = run_subagent(client, model, prompt, logger=logger)
-                else:
-                    handler = TOOL_HANDLERS.get(block.name)
-                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                try:
+                    # The subagent tool spawns a subagent; everything else runs directly
+                    if block.name == "subagent":
+                        desc = block.input.get("description", "subtask")
+                        prompt = block.input.get("prompt", "")
+                        print(f"> subagent ({desc}): {prompt[:80]}")
+                        output = run_subagent(client, model, prompt, logger=logger)
+                    else:
+                        handler = TOOL_HANDLERS.get(block.name)
+                        if not handler:
+                            output = f"Error: Unknown tool '{block.name}'"
+                        else:
+                            output = handler(**block.input)
+                except Exception as e:
+                    output = f"Error: {type(e).__name__}: {e}"
                 print(f"  {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
         # Feed tool results back as a "user" message (Anthropic API convention)
