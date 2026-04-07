@@ -14,7 +14,9 @@ def main():
     args = parser.parse_args()
 
     import os
-    model = args.model or os.environ["MODEL_ID"]
+    model = args.model or os.getenv("MODEL_ID")
+    if not model:
+        parser.error("--model is required (or set MODEL_ID env var)")
     client, model = create_client(args.provider, model, base_url=args.base_url)
 
     history = []  # conversation history shared across turns
@@ -26,6 +28,7 @@ def main():
         if query.strip().lower() in ("q", "exit", ""):
             break
         history.append({"role": "user", "content": query})
+        # Main agent loop: send messages to the model, dispatch tool calls, repeat until done
         agent_loop(client, model, history)
         # Print the model's final text response
         response_content = history[-1]["content"]
