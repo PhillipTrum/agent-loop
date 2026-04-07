@@ -4,6 +4,7 @@ import argparse
 
 from models import create_client
 from agent import agent_loop
+from agent_logging import AgentLogger
 
 
 def main():
@@ -11,6 +12,8 @@ def main():
     parser.add_argument("--provider", default="anthropic", help="LLM provider (default: anthropic)")
     parser.add_argument("--model", default=None, help="Model ID (default: MODEL_ID env var)")
     parser.add_argument("--base-url", default=None, help="Custom API base URL (e.g. for local LLMs)")
+    parser.add_argument("--show-subagent", action="store_true", help="Show round-by-round subagent activity")
+    parser.add_argument("--trace", action="store_true", help="Log full prompts and responses to JSONL file")
     args = parser.parse_args()
 
     import os
@@ -18,6 +21,7 @@ def main():
     if not model:
         parser.error("--model is required (or set MODEL_ID env var)")
     client, model = create_client(args.provider, model, base_url=args.base_url)
+    logger = AgentLogger(model=model, show_subagent=args.show_subagent, trace=args.trace)
 
     history = []  # conversation history shared across turns
     while True:
@@ -29,7 +33,9 @@ def main():
             break
         history.append({"role": "user", "content": query})
         # Main agent loop: send messages to the model, dispatch tool calls, repeat until done
-        agent_loop(client, model, history)
+        logger.turn_start()
+        agent_loop(client, model, history, logger=logger)
+        logger.turn_end()
         # Print the model's final text response
         response_content = history[-1]["content"]
         if isinstance(response_content, list):

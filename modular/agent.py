@@ -5,17 +5,26 @@ from tools import TOOL_HANDLERS, PARENT_TOOLS
 from tools.subagent import handler as run_subagent
 
 
-def agent_loop(client, model: str, messages: list):
+def agent_loop(client, model: str, messages: list, logger=None):
     """Main loop: send messages to the model, dispatch tool calls, repeat until done."""
     while True:
+        if logger:
+            logger.log_request("parent", logger._round + 1, messages,
+                               SYSTEM, PARENT_TOOLS, model)
         response = client.messages.create(
             model=model, system=SYSTEM, messages=messages,
             tools=PARENT_TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
+        if logger:
+            logger.round_response(response)
         # No tool calls means the model is done responding
         if response.stop_reason != "tool_use":
             return
+        # Log this round's tool calls
+        tool_names = [b.name for b in response.content if b.type == "tool_use"]
+        if logger:
+            logger.round_start(tool_names)
         results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -24,7 +33,7 @@ def agent_loop(client, model: str, messages: list):
                     desc = block.input.get("description", "subtask")
                     prompt = block.input.get("prompt", "")
                     print(f"> subagent ({desc}): {prompt[:80]}")
-                    output = run_subagent(client, model, prompt)
+                    output = run_subagent(client, model, prompt, logger=logger)
                 else:
                     handler = TOOL_HANDLERS.get(block.name)
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
