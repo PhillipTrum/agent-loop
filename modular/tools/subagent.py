@@ -1,6 +1,8 @@
 # Tool: subagent -- spawn a subagent with fresh context.
-# Uses a late import for TOOL_HANDLERS/CHILD_TOOLS to avoid a circular
+# Uses a late import for make_handlers/CHILD_TOOLS to avoid a circular
 # dependency with tools/__init__.py.
+
+from pathlib import Path
 
 from prompts import SUBAGENT_SYSTEM
 
@@ -18,9 +20,12 @@ SCHEMA = {
 }
 
 
-def handler(client, model: str, prompt: str, logger=None) -> str:
+def handler(client, model: str, prompt: str, workdir: Path, logger=None) -> str:
     """Run a child agent with fresh context. Returns only its final text summary."""
-    from tools import TOOL_HANDLERS, CHILD_TOOLS
+    from tools import make_handlers, CHILD_TOOLS
+
+    system = SUBAGENT_SYSTEM.format(workdir=workdir)
+    tool_handlers = make_handlers(workdir)
 
     if logger:
         logger.subagent_start(prompt[:60])
@@ -29,9 +34,9 @@ def handler(client, model: str, prompt: str, logger=None) -> str:
     for _ in range(30):  # safety cap on tool-use rounds
         if logger:
             logger.log_request("subagent", logger._sub_round + 1, sub_messages,
-                               SUBAGENT_SYSTEM, CHILD_TOOLS, model)
+                               system, CHILD_TOOLS, model)
         response = client.messages.create(
-            model=model, system=SUBAGENT_SYSTEM, messages=sub_messages,
+            model=model, system=system, messages=sub_messages,
             tools=CHILD_TOOLS, max_tokens=8000,
         )
         sub_messages.append({"role": "assistant", "content": response.content})
@@ -48,7 +53,7 @@ def handler(client, model: str, prompt: str, logger=None) -> str:
         for block in response.content:
             if block.type == "tool_use":
                 try:
-                    tool_handler = TOOL_HANDLERS.get(block.name)
+                    tool_handler = tool_handlers.get(block.name)
                     if not tool_handler:
                         output = f"Error: Unknown tool '{block.name}'"
                     else:

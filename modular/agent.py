@@ -1,18 +1,22 @@
 # Core agent loop: parent orchestration with tool dispatch.
 
+from pathlib import Path
+
 from prompts import SYSTEM
-from tools import TOOL_HANDLERS, PARENT_TOOLS
+from tools import make_handlers, PARENT_TOOLS
 from tools.subagent import handler as run_subagent
 
 
-def agent_loop(client, model: str, messages: list, logger=None):
+def agent_loop(client, model: str, messages: list, workdir: Path, logger=None):
     """Main loop: send messages to the model, dispatch tool calls, repeat until done."""
+    system = SYSTEM.format(workdir=workdir)
+    tool_handlers = make_handlers(workdir)
     while True:
         if logger:
             logger.log_request("parent", logger._round + 1, messages,
-                               SYSTEM, PARENT_TOOLS, model)
+                               system, PARENT_TOOLS, model)
         response = client.messages.create(
-            model=model, system=SYSTEM, messages=messages,
+            model=model, system=system, messages=messages,
             tools=PARENT_TOOLS, max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
@@ -34,9 +38,9 @@ def agent_loop(client, model: str, messages: list, logger=None):
                         desc = block.input.get("description", "subtask")
                         prompt = block.input.get("prompt", "")
                         print(f"> subagent ({desc}): {prompt[:80]}")
-                        output = run_subagent(client, model, prompt, logger=logger)
+                        output = run_subagent(client, model, prompt, workdir, logger=logger)
                     else:
-                        handler = TOOL_HANDLERS.get(block.name)
+                        handler = tool_handlers.get(block.name)
                         if not handler:
                             output = f"Error: Unknown tool '{block.name}'"
                         else:

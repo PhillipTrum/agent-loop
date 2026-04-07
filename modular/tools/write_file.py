@@ -1,6 +1,6 @@
 # Tool: write_file -- create or overwrite a file.
 
-from workspace import safe_path
+from pathlib import Path
 
 SCHEMA = {
     "name": "write_file",
@@ -16,9 +16,16 @@ SCHEMA = {
 }
 
 
-def handler(path: str, content: str) -> str:
+def _safe_path(p: str, workdir: Path) -> Path:
+    path = (workdir / p).resolve()
+    if not path.is_relative_to(workdir):
+        raise ValueError(f"Path escapes workspace: {p}")
+    return path
+
+
+def handler(path: str, content: str, workdir: Path) -> str:
     try:
-        fp = safe_path(path)
+        fp = _safe_path(path, workdir)
         fp.parent.mkdir(parents=True, exist_ok=True)
         fp.write_text(content)
         return f"Wrote {len(content)} bytes"
