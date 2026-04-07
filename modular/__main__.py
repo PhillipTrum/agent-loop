@@ -9,14 +9,13 @@ from agent import agent_loop
 def main():
     parser = argparse.ArgumentParser(description="Coding agent REPL")
     parser.add_argument("--provider", default="anthropic", help="LLM provider (default: anthropic)")
-    parser.add_argument("--model", default=None, help="Model ID (default: MODEL_ID env var)")
-    parser.add_argument("--base-url", default=None, help="Custom API base URL (e.g. for local LLMs)")
+    parser.add_argument("--model", default=None, help="Model ID")
+    parser.add_argument("--base-url", default=None, help="Custom API base URL (e.g. for local or self-hosted LLMs)")
     args = parser.parse_args()
 
-    import os
-    model = args.model or os.getenv("MODEL_ID")
+    model = args.model
     if not model:
-        parser.error("--model is required (or set MODEL_ID env var)")
+        parser.error("--model is required")
     client, model = create_client(args.provider, model, base_url=args.base_url)
 
     history = []  # conversation history shared across turns
