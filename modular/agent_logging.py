@@ -59,14 +59,11 @@ class AgentLogger:
 
     # --- Parent round tracking ---
 
-    def round_start(self, tool_names: list[str], tool_blocks=None):
+    def round_start(self, tool_names: list[str]):
         self._round += 1
         self._tool_counts.update(tool_names)
         print(f"--- Round {self._round} ---")
         print(f"  Tools: {', '.join(tool_names)}")
-        if tool_blocks:
-            for block in tool_blocks:
-                self._log_tool_input(block)
 
     def _log_tool_input(self, block, indent="    "):
         """Print a concise summary of what a tool call is doing."""
@@ -79,6 +76,21 @@ class AgentLogger:
             print(f"{indent}write: {inp.get('path', '')}")
         elif block.name == "edit_file":
             print(f"{indent}edit: {inp.get('path', '')}")
+
+    def tool_output(self, block, output, indent="    "):
+        """Print tool input and output together."""
+        self._log_tool_input(block, indent)
+        text = str(output).strip()
+        if not text or text == "None":
+            print(f"{indent}Tool output: (no output)")
+        else:
+            first_line = text.split("\n", 1)[0]
+            remaining = text.count("\n")
+            preview = first_line[:200]
+            if remaining > 0:
+                print(f"{indent}Tool output: {preview} ... (+{remaining} lines)")
+            else:
+                print(f"{indent}Tool output: {preview}")
 
     def round_response(self, response):
         usage = getattr(response, "usage", None)
@@ -117,15 +129,16 @@ class AgentLogger:
         self._sub_input_tokens = 0
         self._sub_output_tokens = 0
 
-    def subagent_round_start(self, tool_names: list[str], tool_blocks=None):
+    def subagent_round_start(self, tool_names: list[str]):
         self._sub_round += 1
         self._sub_tool_counts.update(tool_names)
         if self.show_subagent:
             print(f"  | --- Sub-round {self._sub_round} ---")
             print(f"  |   Tools: {', '.join(tool_names)}")
-            if tool_blocks:
-                for block in tool_blocks:
-                    self._log_tool_input(block, indent="  |   ")
+
+    def subagent_tool_output(self, block, output):
+        if self.show_subagent:
+            self.tool_output(block, output, indent="  |     ")
 
     def subagent_round_response(self, response):
         usage = getattr(response, "usage", None)
