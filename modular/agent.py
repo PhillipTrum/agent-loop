@@ -26,9 +26,10 @@ def agent_loop(client, model: str, messages: list, workdir: Path, logger=None):
         if response.stop_reason != "tool_use":
             return
         # Log this round's tool calls
-        tool_names = [b.name for b in response.content if b.type == "tool_use"]
+        tool_blocks = [b for b in response.content if b.type == "tool_use"]
+        tool_names = [b.name for b in tool_blocks]
         if logger:
-            logger.round_start(tool_names)
+            logger.round_start(tool_names, tool_blocks)
         results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -37,7 +38,7 @@ def agent_loop(client, model: str, messages: list, workdir: Path, logger=None):
                     if block.name == "subagent":
                         desc = block.input.get("description", "subtask")
                         prompt = block.input.get("prompt", "")
-                        print(f"> subagent ({desc}): {prompt[:80]}")
+                        print(f"> subagent ({desc}): {prompt[:80]}...")
                         output = run_subagent(client, model, prompt, workdir, logger=logger)
                     else:
                         handler = tool_handlers.get(block.name)

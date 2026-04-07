@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 class AgentLogger:
     def __init__(self, model: str, show_subagent=False, trace=False):
-        self.show_subagent = show_subagent or trace
+        self.show_subagent = show_subagent
         self.trace = trace
         self._logfile = None
         # Per-turn state
@@ -59,11 +59,26 @@ class AgentLogger:
 
     # --- Parent round tracking ---
 
-    def round_start(self, tool_names: list[str]):
+    def round_start(self, tool_names: list[str], tool_blocks=None):
         self._round += 1
         self._tool_counts.update(tool_names)
         print(f"--- Round {self._round} ---")
         print(f"  Tools: {', '.join(tool_names)}")
+        if tool_blocks:
+            for block in tool_blocks:
+                self._log_tool_input(block)
+
+    def _log_tool_input(self, block, indent="    "):
+        """Print a concise summary of what a tool call is doing."""
+        inp = block.input
+        if block.name == "bash":
+            print(f"{indent}$ {inp.get('command', '')}")
+        elif block.name == "read_file":
+            print(f"{indent}read: {inp.get('path', '')}")
+        elif block.name == "write_file":
+            print(f"{indent}write: {inp.get('path', '')}")
+        elif block.name == "edit_file":
+            print(f"{indent}edit: {inp.get('path', '')}")
 
     def round_response(self, response):
         usage = getattr(response, "usage", None)
@@ -102,12 +117,15 @@ class AgentLogger:
         self._sub_input_tokens = 0
         self._sub_output_tokens = 0
 
-    def subagent_round_start(self, tool_names: list[str]):
+    def subagent_round_start(self, tool_names: list[str], tool_blocks=None):
         self._sub_round += 1
         self._sub_tool_counts.update(tool_names)
         if self.show_subagent:
             print(f"  | --- Sub-round {self._sub_round} ---")
             print(f"  |   Tools: {', '.join(tool_names)}")
+            if tool_blocks:
+                for block in tool_blocks:
+                    self._log_tool_input(block, indent="  |   ")
 
     def subagent_round_response(self, response):
         usage = getattr(response, "usage", None)

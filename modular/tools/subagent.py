@@ -45,9 +45,10 @@ def handler(client, model: str, prompt: str, workdir: Path, logger=None) -> str:
         if response.stop_reason != "tool_use":
             break
         # Log this round's tool calls
-        tool_names = [b.name for b in response.content if b.type == "tool_use"]
+        tool_blocks = [b for b in response.content if b.type == "tool_use"]
+        tool_names = [b.name for b in tool_blocks]
         if logger:
-            logger.subagent_round_start(tool_names)
+            logger.subagent_round_start(tool_names, tool_blocks)
         # Execute every tool the model requested and collect results
         results = []
         for block in response.content:
