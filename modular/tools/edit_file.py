@@ -1,6 +1,6 @@
 # Tool: edit_file -- find-and-replace exact text in a file.
 
-from workspace import safe_path
+from pathlib import Path
 
 SCHEMA = {
     "name": "edit_file",
@@ -17,9 +17,16 @@ SCHEMA = {
 }
 
 
-def handler(path: str, old_text: str, new_text: str) -> str:
+def _safe_path(p: str, workdir: Path) -> Path:
+    path = (workdir / p).resolve()
+    if not path.is_relative_to(workdir):
+        raise ValueError(f"Path escapes workspace: {p}")
+    return path
+
+
+def handler(path: str, old_text: str, new_text: str, workdir: Path) -> str:
     try:
-        fp = safe_path(path)
+        fp = _safe_path(path, workdir)
         content = fp.read_text()
         if old_text not in content:
             return f"Error: Text not found in {path}"

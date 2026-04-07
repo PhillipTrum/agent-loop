@@ -1,9 +1,13 @@
 # CLI entry point: parses provider/model args, then runs the REPL.
 
 import argparse
+from pathlib import Path
 
 from models import create_client
 from agent import agent_loop
+from agent_logging import AgentLogger
+
+DEFAULT_WORKSPACE = Path(__file__).resolve().parent / "workspace"
 
 
 def main():
@@ -11,12 +15,20 @@ def main():
     parser.add_argument("--provider", default="anthropic", help="LLM provider (default: anthropic)")
     parser.add_argument("--model", default=None, help="Model ID")
     parser.add_argument("--base-url", default=None, help="Custom API base URL (e.g. for local or self-hosted LLMs)")
+    parser.add_argument("--workspace", default=None, help="Working directory for the agent (default: ./workspace)")
+    parser.add_argument("--show-subagent", action="store_true", help="Show round-by-round subagent activity")
+    parser.add_argument("--trace", action="store_true", help="Log full prompts and responses to JSONL file")
     args = parser.parse_args()
 
     model = args.model
     if not model:
         parser.error("--model is required")
+
+    workdir = Path(args.workspace).resolve() if args.workspace else DEFAULT_WORKSPACE
+    workdir.mkdir(parents=True, exist_ok=True)
+
     client, model = create_client(args.provider, model, base_url=args.base_url)
+    logger = AgentLogger(model=model, show_subagent=args.show_subagent, trace=args.trace)
 
     history = []  # conversation history shared across turns
     while True:
@@ -28,7 +40,9 @@ def main():
             break
         history.append({"role": "user", "content": query})
         # Main agent loop: send messages to the model, dispatch tool calls, repeat until done
-        agent_loop(client, model, history)
+        logger.turn_start()
+        agent_loop(client, model, history, workdir, logger=logger)
+        logger.turn_end()
         # Print the model's final text response
         response_content = history[-1]["content"]
         if isinstance(response_content, list):

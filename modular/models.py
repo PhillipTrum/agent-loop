@@ -135,7 +135,13 @@ def _from_openai_response(response):
             ))
 
     stop_reason = "tool_use" if choice.message.tool_calls else "end_turn"
-    return SimpleNamespace(content=content_blocks, stop_reason=stop_reason)
+    usage = SimpleNamespace(input_tokens=0, output_tokens=0)
+    if response.usage:
+        usage = SimpleNamespace(
+            input_tokens=response.usage.prompt_tokens,
+            output_tokens=response.usage.completion_tokens,
+        )
+    return SimpleNamespace(content=content_blocks, stop_reason=stop_reason, usage=usage)
 
 
 def create_client(provider: str, model: str, base_url: str = None):
