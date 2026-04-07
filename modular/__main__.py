@@ -22,7 +22,7 @@ def main():
     history = []  # conversation history shared across turns
     while True:
         try:
-            query = input("\033[36ms04 >> \033[0m")
+            query = input("\033[36m>>> \033[0m")
         except (EOFError, KeyboardInterrupt):
             break
         if query.strip().lower() in ("q", "exit", ""):
